@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: ggi_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ggi_user
+      POSTGRES_PASSWORD: ggi_password
+      POSTGRES_DB: ggi_backend
+    ports:
+      - "5433:5432"
+    volumes:
+      - ggi_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  ggi_postgres_data:

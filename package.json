@@ -1,0 +1,47 @@
+{
+  "name": "ai_chatmodule_project",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "migration:run": "ts-node --transpile-only src/shared/persistence/migrate.ts run",
+    "migration:revert": "ts-node --transpile-only src/shared/persistence/migrate.ts revert",
+    "billing:run-renewals": "ts-node --transpile-only src/jobs/run-renewals.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.0.1",
+    "@types/pg": "^8.20.0",
+    "eslint": "^9.13.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.11.0",
+    "prettier": "^3.3.3",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.10.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.2.0",
+    "pg": "^8.22.0",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^1.0.0",
+    "zod": "^4.4.3"
+  }
+}
