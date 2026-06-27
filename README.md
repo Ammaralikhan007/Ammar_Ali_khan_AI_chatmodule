@@ -3,10 +3,6 @@
 A secure, production-style backend for an AI chat module with usage quotas and
 paid subscriptions. Built with **Express 5 + TypeScript (strict) + TypeORM
 (PostgreSQL)** following **Clean Architecture / Domain-Driven Design**.
-
-> **New here?** Read [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full
-> module/layer map, and [`TESTING.md`](./TESTING.md) to run everything by hand.
-
 ---
 
 ## Features
