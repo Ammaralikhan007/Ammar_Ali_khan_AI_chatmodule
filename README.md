@@ -3,11 +3,13 @@
 A secure, production-style backend for an AI chat module with usage quotas and
 paid subscriptions. Built with **Express 5 + TypeScript (strict) + TypeORM
 (PostgreSQL)** following **Clean Architecture / Domain-Driven Design**.
+
+> **New here?** Read [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full
+> module/layer map, and [`TESTING.md`](./TESTING.md) to run everything by hand.
+
 ---
 
 ## Features
-
-**Two domain modules**
 
 - **AI Chat + Quota** — ask a question → (mock) AI answer, with atomic quota
   deduction. Free tier is 3 messages/month, then subscription quota. Quota is
@@ -18,20 +20,6 @@ paid subscriptions. Built with **Express 5 + TypeScript (strict) + TypeORM
   `basic` / `pro` / `enterprise` tiers (monthly or yearly), with simulated
   auto-renewal and payment processing (random declines exercise the failure
   path).
-
-**Security & operability**
-
-- OIDC-style **JWT verification** (signature + `iss`/`aud`/`exp`) — possession
-  of a token isn't enough.
-- **Proof-of-possession** request signing (HMAC + timestamp, replay-protected).
-- **RBAC** (`user` / `admin`), restricted **CORS**, **helmet** headers, strict
-  **content-type**, 64 KB **body limit**.
-- **Rate limiting** — global per-IP plus distinct per-user budgets for chat /
-  subscriptions / admin.
-- **Global request timeout**, **input sanitization**, schema validation with
-  unknown-field rejection (anti mass-assignment).
-- Typed error envelope, request-id correlation, structured access logs.
-- **TypeORM migrations** (no `synchronize` in normal operation).
 
 ---
 
@@ -49,14 +37,67 @@ paid subscriptions. Built with **Express 5 + TypeScript (strict) + TypeORM
 
 ---
 
-## Prerequisites
+## Architecture Decisions
+
+- **Clean Architecture / DDD layering.** Code is split into `domain` (pure
+  business types + repository _ports_), `application` (use-cases that orchestrate
+  and own transactions), `infrastructure` (TypeORM/mock adapters), and
+  `interface` (HTTP). Dependencies point inward, so business logic never depends
+  on Express or TypeORM and is easy to test and swap.
+- **Express over a heavier framework.** The design blueprint considered NestJS;
+  the implementation uses Express 5 and wires the layers manually to keep the
+  project small and explicit while preserving the same boundaries.
+- **PostgreSQL + TypeORM with atomic quota deduction.** Quota is deducted inside
+  a single DB transaction using `SELECT … FOR UPDATE` (`pessimistic_write`) row
+  locks, so two concurrent requests can never double-spend the last credit.
+- **Free-then-subscription quota with an append-only usage ledger.** Each
+  message tries free monthly quota (3/mo) then subscription quota; every
+  deduction is recorded in `usage_ledger` for auditing — cancelling a
+  subscription preserves history.
+- **Mock OIDC + mock providers behind ports.** Identity (OIDC/JWT), the AI
+  client, and the payment gateway are mocked locally but sit behind interfaces,
+  so they can be replaced with Keycloak / a real AI API / a real PSP without
+  touching domain or application code. JWT verification uses HS256 here; the
+  flow (verify signature → `iss`/`aud`/`exp`) mirrors a production RS256 + JWKS
+  setup.
+- **Migrations over `synchronize`.** The schema is owned by explicit, reviewable
+  TypeORM migrations. `synchronize` is available only as an opt-in dev shortcut
+  (`DB_SYNCHRONIZE=true`), never the default.
+- **In-memory rate limiting.** Counters are in-process for simplicity; the
+  limiter is isolated behind a factory so it can be swapped for a shared store
+  (Redis) when scaling horizontally.
+- **Validation at the edge with Zod `.strict()`.** Request bodies are validated
+  and unknown fields are rejected, preventing mass-assignment; prices/allotments
+  are always derived server-side, never trusted from the client.
+
+---
+
+## Security Model
+
+Defense in depth — every authenticated request passes through multiple
+independent layers:
+
+| Layer                  | Mechanism                                                                                             |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| **Authentication**     | OIDC bearer **JWT** verified server-side (signature + `iss` / `aud` / `exp`). Possession ≠ access.    |
+| **Proof-of-possession**| **HMAC request signature** over `method:url:timestamp` + fresh timestamp → a stolen token can't be replayed. |
+| **Authorization**      | **RBAC** (`user` / `admin`) at the route level, plus ownership checks in use-cases (e.g. only cancel your own subscription). |
+| **Rate limiting**      | Global **per-IP** limit (pre-auth) + distinct **per-user** budgets for chat / subscriptions / admin.  |
+| **Transport hardening**| `helmet` headers, allow-list **CORS** (no wildcard with credentials), strict **content-type**, **64 KB** body cap, global **request timeout**. |
+| **Input handling**     | Zod schema validation with unknown-field rejection (anti mass-assignment), **input sanitization** (strips control chars + HTML → stored-XSS defense), ORM-parameterized queries (SQL-injection defense). |
+| **Error handling**     | Typed JSON error envelope `{ code, message, requestId }`; stack traces / internals never leaked in production. |
+| **Secrets**            | All secrets via environment (`.env` is git-ignored); only `.env.example` with dev placeholders is committed. |
+
+---
+
+## Setup Instructions
+
+### Prerequisites
 
 - Node.js 18+
 - Docker (for PostgreSQL) — or your own Postgres on the configured port
 
----
-
-## Quick start
+### Steps
 
 ```bash
 # 1. Install dependencies
